@@ -3,6 +3,7 @@ import random
 import pygame
 from pygame.locals import *
 from win32api import GetSystemMetrics
+pygame.init()
 
 # Display Settings
 # width and height, on original device that as programmed on was 2560 and 1440
@@ -116,11 +117,12 @@ class Spaceship:
         self.mouse_pos = pygame.mouse.get_pos()
         # the ships targeting system, so it doesn't turn instantly.
         self.target = [0, 0]
+        self.easing = 0.1  # easing is how long the target will reach the mouse position
         # flames for aesthetics when moving, and info
         self.flame_image = pygame.image.load('images/Thruster Flames.png')
         self.flame_info = None # this will include a tuple that has flame distance from center and scale ration
         # ships stats
-        if ship_type == "fighter":
+        if ship_type == "fighter":  # have to define it statically so it won't update to that value every loop
             self.health = 30
         elif ship_type == "frigate":
             self.health = 100
@@ -184,7 +186,8 @@ class Spaceship:
             self.image_rects.centerx,
             self.image_rects.centery
         )
-        self.max_speed = 4
+        self.easing = 0.025
+        self.max_speed = 3.5
         rot_frigate, self.image_rects = self.rot_center(self.images[0], self.image_rects, self.angle-90)
         self.mask = pygame.mask.from_surface(rot_frigate)
         self.image_rects.center = self.loc
@@ -199,6 +202,7 @@ class Spaceship:
             self.image_rects.centery
         )
         self.max_speed = 6
+        self.easing = 0.5
         rot_fighter, self.image_rects = self.rot_center(self.images[1], self.image_rects, self.angle-90)
         self.mask = pygame.mask.from_surface(rot_fighter)
         self.image_rects.center = self.loc
@@ -213,6 +217,7 @@ class Spaceship:
             self.image_rects.centery
         )
         self.max_speed = 3
+        self.easing = 0.006
         rot_destroyer, self.image_rects = self.rot_center(self.images[2], self.image_rects, self.angle-90)
         self.mask = pygame.mask.from_surface(rot_destroyer)
         self.image_rects.center = self.loc
@@ -284,8 +289,8 @@ class Spaceship:
 
         # update mouse and target
         if not Asteroid.collided:
-            self.target[0] += (self.mouse_pos[0] - self.target[0]) * 0.1
-            self.target[1] += (self.mouse_pos[1] - self.target[1]) * 0.1  # 0.1 is easing
+            self.target[0] += (self.mouse_pos[0] - self.target[0]) * self.easing
+            self.target[1] += (self.mouse_pos[1] - self.target[1]) * self.easing  # apply easing
         pygame.draw.circle(display, [255, 0, 0], (int(self.target[0]), int(self.target[1])), 10)  # target circle
 
         # updates collision variables
@@ -314,7 +319,7 @@ class Camera:
 camera = Camera(width, height)
 
 
-class Asteroid():
+class Asteroid:
     directions = center_spaceship.directions
     collided = False
 
@@ -378,7 +383,7 @@ class Asteroid():
 
         if self.overlap is not None:
             Asteroid.collided = True
-            center_spaceship.speed = 10
+            center_spaceship.speed = 5
             if not center_spaceship.dir_override:
                 center_spaceship.moving = False
                 Asteroid.directions = [0, 0]
@@ -392,6 +397,8 @@ class Asteroid():
 
 asteroids = [Asteroid([random.randint(0, width), random.randint(0, height)]) for i in range(0, 2)]
 
+print(list(range(0, 10, 2)))
+
 # ------------------RUNNER------------------- move this down later
 running = True
 # ------------------SCENE CONTROLLER-------------------
@@ -399,7 +406,7 @@ scene = "START_MENU"   # scenes are START_MENU, GAME, and GAME.MAIN_MENU
 # ------------------START MENU VARIABLES AND FUNCTION---------------------
 start_menu_button_play = Button(
     display,
-    [400, height/2-250, 500, 240],
+    [width/5, height*(1/4), width/4, height/5],
     "Start",
     (130, 130, 130),
     (100, 100, 100),
@@ -409,7 +416,7 @@ start_menu_button_play = Button(
 
 start_menu_button_exit = Button(
     display,
-    [400, height/2+250, 500, 240],
+    [width/5, height*(3/4), width/4, height/5],
     "Exit",
     (130, 130, 130),
     (100, 100, 100),
@@ -425,7 +432,7 @@ def start_menu():
     # draw the background
     display.blit(background, (0, 0))
     # game title
-    text(display, [255, 255, 255], (width*1700/2560, 500, 1, 1), "DEFENDER", int(width*150/2560)+10)
+    text(display, [255, 255, 255], (width*1700/2560, height/2, 1, 1), "DEFENDER", int(width*150/2560)+10)
     start_menu_button_play.draw()
     if start_menu_button_play.clicked():
         scene = "GAME"
