@@ -16,7 +16,7 @@ screen = pygame.display.set_mode((width, height), pygame.FULLSCREEN)  # we use w
 display = pygame.Surface((width, height))  # what we do is we have a surface display and scale it to the resolution
 screen_display_scale_ratio = (width + height) / (2560 + 1440)
 """
-icon = pygame.image.load('images/fighter.png')
+icon = pygame.image.load('images/Asteroid (Medium).png')
 pygame.display.set_icon(icon)
 pygame.display.set_caption("Defender")
 
@@ -76,17 +76,8 @@ class Button:
         text(self.display, self.m_c, self.rect, self.message, self.m_f_c)
 
 
-class Projectile:
-    def __init__(self, image, type):
-        self.image = None
-        if type == "missile":
-            pass
-        elif type == "laser":
-            pass
-
-
 class Spaceship:
-    def __init__(self, loc=None, ship_type="fighter"):
+    def __init__(self, loc=None, ship_type="destroyer"):
         self.loc = [width/2, height/2] if not loc else loc # spaceship needs to stay in center position
         self.images = [
             pygame.image.load("images\Frigate.png"),
@@ -128,6 +119,10 @@ class Spaceship:
             self.health = 100
         elif ship_type == "destroyer":
             self.health = 250
+        # ship shooting missile: attributes and stuff
+        self.reload = 0
+        self.reload_speed = 1
+        self.missile_image = pygame.image.load("images/Missile.png")
 
     def controls(self):
         """controls the input from user"""
@@ -212,10 +207,7 @@ class Spaceship:
         """Defines the blueprint of the destroyer type spaceship"""
         self.mask = pygame.mask.from_surface(self.images[2])
         self.image_rects = self.images[2].get_rect(center=self.loc)
-        self.center = (
-            self.image_rects.centerx,
-            self.image_rects.centery
-        )
+        self.center = self.image_rects.center
         self.max_speed = 3
         self.easing = 0.006
         rot_destroyer, self.image_rects = self.rot_center(self.images[2], self.image_rects, self.angle-90)
@@ -223,12 +215,43 @@ class Spaceship:
         self.image_rects.center = self.loc
         display.blit(rot_destroyer, self.image_rects)
 
+    def shoot_missile(self, list_of_missiles):
+        """Code for drawing and moving projectiles launched from ship
+        Pushes missiles into a global list, which is the drawn, and the camera is applied to it"""
+        if self.reload <= 100:
+            self.reload += self.reload_speed
+        if pygame.mouse.get_pressed()[0] and self.reload > 100:
+            if self.type == "destroyer":
+                list_of_missiles.append(
+                    Missile(
+                        (self.center[0]+100*math.sin(math.radians(self.angle+35)),
+                         self.center[1]+100*math.cos(math.radians(self.angle+35))),
+                        self.angle)
+                )
+                list_of_missiles.append(
+                    Missile(
+                        (self.center[0]+100*math.sin(math.radians(self.angle+145)),
+                         self.center[1]+100*math.cos(math.radians(self.angle+145))),
+                        self.angle)
+                )
+            else:
+                print("Shooting not yet implemented for this spaceship type.")
+            self.reload = 0
+        for missile in missile_list:
+            missile.launch()
+            missile.draw()
+
     def find_angle(self):
         if not Asteroid.collided:
             self.angle = math.degrees(-math.atan2(self.target[1]-self.center[1], self.target[0]-self.center[0]))
 
     def stat_display(self):
+        # health display
         pygame.draw.rect(display, (255, 0, 0), (main_menu_button_on.rect[3], 0, self.health*10, 20))
+        # reload display
+        display.blit(self.missile_image, (width-75, height-100))
+        pygame.draw.rect(display, (200, 200, 200), (width-80, height-100, 20, 100))
+        pygame.draw.rect(display, (255, 255, 255), (width-80, height, 20, -self.reload))
 
     def draw_engine(self):
         # draw engine/moving flame
@@ -267,7 +290,6 @@ class Spaceship:
             display.blit(rot_flame, rot_rect)
 
     def draw(self):
-        self.stat_display()
         self.draw_engine()
 
         if self.type == "fighter":
@@ -319,6 +341,74 @@ class Camera:
 camera = Camera(width, height)
 
 
+class Missile:
+    def __init__(self, loc, angle):
+        self.angle = angle
+        self.image = pygame.image.load("images\Missile.png")
+        self.rect = self.image.get_rect(center=loc)
+        self.loc = loc
+        self.dir = 5
+        self.speed = 1.5
+        self.rot_missile = None
+        self.hit = False
+        self.destroyed = False
+        self.mask = pygame.mask.from_surface(self.image)
+        self.remove_from_list_countdown = 1000
+        # explosion variables
+        self.explosion_image = pygame.image.load("images/Explosion.png")
+        self.explosion_rect = self.explosion_image.get_rect()
+        self.explosion_pos = None
+        self.explosion_scale_size = 10
+
+    def rot_center(self, image, rect):
+        new_image = pygame.transform.rotate(image, self.angle-90)
+        rect = new_image.get_rect(center=rect.center)
+        return new_image, rect
+
+    def launch(self):
+        # create rotated missile with it's new rect
+        self.rot_missile, self.rect = self.rot_center(self.image, self.rect)
+        # assign the rect a center
+        self.loc = (
+            self.loc[0] + self.dir * math.sin(math.radians(self.angle + 90)) - Asteroid.directions[0],
+            self.loc[1] + self.dir * math.cos(math.radians(self.angle + 90)) - Asteroid.directions[1]
+        )
+        self.rect.center = self.loc
+        # self.dir += self.speed  # produces a nice effect of the missile speeding up
+
+    def remove(self):
+        if self.hit:
+            self.remove_from_list_countdown -= 1
+
+        if self.remove_from_list_countdown <= 0:
+            self.destroyed = True
+
+    def explode(self):
+            self.explosion_rect = self.explosion_image.get_rect(center=self.explosion_pos)
+            # add functions to remove missile from missile list, decrease health, and more
+            self.explosion_scale_size += 2
+            zoom_explosion = pygame.transform.scale(
+                self.explosion_image,
+                (self.explosion_scale_size, self.explosion_scale_size)
+            )
+            display.blit(zoom_explosion, self.explosion_rect)
+
+    def draw(self):
+        self.remove()
+        # update mask
+        self.mask = pygame.mask.from_surface(self.rot_missile)
+        # draws missile only when in display viewing to save time
+        if -100 <= self.rect.centerx <= width+100 and -100 <= self.rect.centery <= height+100:
+            if not self.hit:
+                display.blit(self.rot_missile, self.rect)
+        else:
+            self.destroyed = True
+
+
+# our missile list
+missile_list = []
+
+
 class Asteroid:
     directions = center_spaceship.directions
     collided = False
@@ -335,8 +425,12 @@ class Asteroid:
         self.image_rects = self.images[1].get_rect(center=self.loc)  # defaults to medium. May remove the center
         # the mask
         self.image_masks = pygame.mask.from_surface(self.images[2])
-        self.overlap = None
         self.damage = 0
+        # explosion image - move to Missile class
+        self.explosion_image = pygame.image.load("images/Explosion.png")
+        self.explosion_rect = self.explosion_image.get_rect()
+        self.explosion_pos = None
+        self.explosion_scale_size = self.explosion_rect.width
 
     def move(self):
         # self.loc[0] += -camera.direction[0]
@@ -376,12 +470,13 @@ class Asteroid:
         elif self.size == "large":
             self.large()
 
-    def collide(self):
+    def collide_spaceship(self):
+        """Detects and handles collision with spaceship"""
         offset_x = center_spaceship.loc[0]-self.loc[0]-center_spaceship.image_rects.width/2
         offset_y = center_spaceship.loc[1]-self.loc[1]-center_spaceship.image_rects.height/2
-        self.overlap = self.image_masks.overlap(center_spaceship.mask, (int(offset_x), int(offset_y)))
+        overlap = self.image_masks.overlap(center_spaceship.mask, (int(offset_x), int(offset_y)))  # overlap is local
 
-        if self.overlap is not None:
+        if overlap is not None:
             Asteroid.collided = True
             center_spaceship.speed = 5
             if not center_spaceship.dir_override:
@@ -389,15 +484,28 @@ class Asteroid:
                 Asteroid.directions = [0, 0]
                 # camera.directions = [0, 0]
 
+    def collide_missile(self):
+        """Detects and handles collisions with missiles"""
+        global missile_list
+        for missile in missile_list:
+            offset_x = missile.rect.centerx-self.loc[0]-missile.rect.width/2
+            offset_y = missile.rect.centery-self.loc[1]-missile.rect.height/2
+            overlap = self.image_masks.overlap(missile.mask, (int(offset_x), int(offset_y)))  # overlap is local
+
+            if overlap is not None:
+                missile.hit = True
+                missile.dir = 0  # makes the speed to nothing.
+                missile.explosion_pos = self.loc[0]+overlap[0], self.loc[1]+overlap[1]
+                missile.explode()
+
     def all(self):
         if self.in_display():
             self.draw()
-        self.collide()
+        self.collide_spaceship()
+        self.collide_missile()
 
 
-asteroids = [Asteroid([random.randint(0, width), random.randint(0, height)]) for i in range(0, 2)]
-
-print(list(range(0, 10, 2)))
+asteroids = [Asteroid([random.randint(0, width), random.randint(0, height)]) for i in range(0, 1)]
 
 # ------------------RUNNER------------------- move this down later
 running = True
@@ -499,14 +607,19 @@ main_menu_button_on = Button(
 
 
 def game():
-    global scene
+    global scene, missile_list
     # The background, will be changed later
     display.fill((0, 0, 0))
-    # cursor, remove it/make it invisible/not see-able
+
     # Update the asteroid direction, this is used in the Asteroid class
     Asteroid.directions = center_spaceship.directions
-    # draw center_spaceship
+
+    # update missile list using a center_spaceship method
+    center_spaceship.shoot_missile(missile_list)
+
+    # draw center_spaceship and uses all methods EXCEPT stat display which is placed on top of asteroids.
     center_spaceship.all()
+
     Asteroid.collided = False
     # draws the asteroids
     for asteroid in asteroids:
@@ -514,6 +627,13 @@ def game():
     # moves the asteroids
     for asteroid_movement in asteroids:
         asteroid_movement.move()
+
+    # filters list, which removes all attributes
+    missile_list = [missile for missile in missile_list if not missile.destroyed]
+
+    # display stats for spaceship
+    center_spaceship.stat_display()
+
     # draw main menu button
     main_menu_button_on.draw()
     if main_menu_button_on.clicked():
