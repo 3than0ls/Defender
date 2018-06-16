@@ -353,12 +353,13 @@ class Missile:
         self.hit = False
         self.destroyed = False
         self.mask = pygame.mask.from_surface(self.image)
-        self.remove_from_list_countdown = 1000
+        self.remove_from_list_countdown = 500
         # explosion variables
         self.explosion_image = pygame.image.load("images/Explosion.png")
         self.explosion_rect = self.explosion_image.get_rect()
         self.explosion_pos = None
         self.explosion_scale_size = 10
+        self.explosion_scale_speed = 5
 
     def rot_center(self, image, rect):
         new_image = pygame.transform.rotate(image, self.angle-90)
@@ -384,13 +385,14 @@ class Missile:
             self.destroyed = True
 
     def explode(self):
-            self.explosion_rect = self.explosion_image.get_rect(center=self.explosion_pos)
             # add functions to remove missile from missile list, decrease health, and more
-            self.explosion_scale_size += 2
+            self.explosion_scale_size += self.explosion_scale_speed**2  # expand the explosion
+            self.explosion_scale_speed /= 1.08  # make it so that the expanding slowly halts
             zoom_explosion = pygame.transform.scale(
                 self.explosion_image,
-                (self.explosion_scale_size, self.explosion_scale_size)
+                (int(self.explosion_scale_size), int(self.explosion_scale_size))
             )
+            self.explosion_rect = zoom_explosion.get_rect(center=self.explosion_pos)
             display.blit(zoom_explosion, self.explosion_rect)
 
     def draw(self):
@@ -427,7 +429,7 @@ class Asteroid:
         self.image_masks = pygame.mask.from_surface(self.images[2])
         self.damage = 0
         # explosion image - move to Missile class
-        self.explosion_image = pygame.image.load("images/Explosion.png")
+        self.explosion_image = pygame.image.load("images/Explosion.png").convert()
         self.explosion_rect = self.explosion_image.get_rect()
         self.explosion_pos = None
         self.explosion_scale_size = self.explosion_rect.width
