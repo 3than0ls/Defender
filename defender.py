@@ -9,7 +9,7 @@ pygame.init()
 # width and height, on original device that as programmed on was 2560 and 1440
 width = GetSystemMetrics(0)
 height = GetSystemMetrics(1)  # possibly delete
-display = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+display = pygame.display.set_mode((width, height), pygame.FULLSCREEN)
 """
 Part of the display resizing solution
 screen = pygame.display.set_mode((width, height), pygame.FULLSCREEN)  # we use width and height JUST to make sure.
