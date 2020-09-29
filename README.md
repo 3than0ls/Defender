@@ -1,2 +1,2 @@
 # Defender
-Defender is a space game, currently still developing.
+Defender is a space game made using pygame.
